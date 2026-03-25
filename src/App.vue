@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
+import UpdateChecker from './components/UpdateChecker.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,5 +51,7 @@ const navItems = [
     <main class="main-content">
       <router-view />
     </main>
+
+    <UpdateChecker />
   </div>
 </template>

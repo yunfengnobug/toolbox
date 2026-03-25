@@ -16,6 +16,9 @@ dist-ssr
 .env
 .env.*
 
+# Tauri signing keys
+~/.tauri/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
