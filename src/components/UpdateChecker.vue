@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { shallowRef, ref, computed, onMounted } from 'vue'
 import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 
-const update = ref<Update | null>(null)
+const update = shallowRef<Update | null>(null)
 const visible = ref(false)
 const downloading = ref(false)
 const downloaded = ref(0)
