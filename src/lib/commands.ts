@@ -1,6 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { IdentifierInfo } from './types'
 
+export async function getPlatform(): Promise<string> {
+  return invoke<string>('get_platform')
+}
+
 export async function checkAdmin(): Promise<boolean> {
   return invoke<boolean>('check_admin')
 }

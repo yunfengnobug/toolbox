@@ -5,6 +5,11 @@ use hardware::IdentifierInfo;
 use tauri::Manager;
 
 #[tauri::command]
+fn get_platform() -> String {
+    std::env::consts::OS.to_string()
+}
+
+#[tauri::command]
 fn check_admin() -> bool {
     is_elevated()
 }
@@ -94,6 +99,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            get_platform,
             check_admin,
             get_all_identifiers,
             modify_identifier,

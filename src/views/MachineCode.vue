@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
+  getPlatform,
   checkAdmin,
   getAllIdentifiers,
   modifyIdentifier,
@@ -17,6 +18,18 @@ const identifiers = ref<IdentifierInfo[]>([])
 const loading = ref(true)
 const toasts = ref<ToastMessage[]>([])
 const isAdmin = ref(true)
+const platform = ref('')
+
+const adminWarningText = computed(() => {
+  switch (platform.value) {
+    case 'macos':
+      return '当前未以 root 身份运行，部分功能可能不可用。请使用 sudo 运行应用。'
+    case 'linux':
+      return '当前未以 root 身份运行，部分功能可能不可用。请使用 sudo 运行应用。'
+    default:
+      return '当前未以管理员身份运行，部分功能可能不可用。请关闭软件后右键选择「以管理员身份运行」。'
+  }
+})
 
 async function loadIdentifiers() {
   loading.value = true
@@ -101,6 +114,7 @@ function dismissToast(id: number) {
 }
 
 onMounted(async () => {
+  platform.value = await getPlatform()
   isAdmin.value = await checkAdmin()
   await loadIdentifiers()
 })
@@ -110,7 +124,7 @@ onMounted(async () => {
   <div class="machine-code">
     <div v-if="!isAdmin" class="admin-warning">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      <span>当前未以管理员身份运行，部分功能可能不可用。请关闭软件后右键选择「以管理员身份运行」。</span>
+      <span>{{ adminWarningText }}</span>
     </div>
 
     <ActionBar

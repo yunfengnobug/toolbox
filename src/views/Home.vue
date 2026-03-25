@@ -1,17 +1,38 @@
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { getPlatform } from '../lib/commands'
 
 const router = useRouter()
+const platform = ref('')
 
-const tools = [
+interface Tool {
+  id: string
+  name: string
+  desc: string
+  icon: string
+  route: string
+  platforms?: string[]
+}
+
+const allTools: Tool[] = [
   {
     id: 'machine-code',
     name: '机器码修改',
     desc: '查看和修改硬件标识符',
     icon: 'fingerprint',
     route: '/machine-code',
+    platforms: ['windows', 'macos', 'linux'],
   },
 ]
+
+const tools = computed(() =>
+  allTools.filter((t) => !t.platforms || t.platforms.includes(platform.value))
+)
+
+onMounted(async () => {
+  platform.value = await getPlatform()
+})
 </script>
 
 <template>
