@@ -143,6 +143,18 @@ body {
   color: var(--accent);
 }
 
+.sidebar__footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sidebar__version {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
 /* ============================== Main Content ============================== */
 
 .main-content {

@@ -1,14 +1,21 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { getVersion } from '@tauri-apps/api/app'
 import UpdateChecker from './components/UpdateChecker.vue'
 
 const route = useRoute()
 const router = useRouter()
+const version = ref('')
 
 const navItems = [
   { name: '首页', route: '/', icon: 'home' },
   { name: '机器码修改', route: '/machine-code', icon: 'fingerprint' },
 ]
+
+onMounted(async () => {
+  version.value = await getVersion()
+})
 </script>
 
 <template>
@@ -46,6 +53,10 @@ const navItems = [
           <span>{{ item.name }}</span>
         </a>
       </nav>
+
+      <div class="sidebar__footer">
+        <span class="sidebar__version">v{{ version }}</span>
+      </div>
     </aside>
 
     <main class="main-content">
