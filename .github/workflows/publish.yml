@@ -55,3 +55,39 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+  deploy-to-ecs:
+    needs: publish-tauri
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          mkdir -p release-assets
+          gh release download "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir release-assets
+          ls -la release-assets/
+
+      - name: Rewrite download URLs in latest.json
+        run: |
+          if [ -f release-assets/latest.json ]; then
+            sed -i "s|https://github.com/${GITHUB_REPOSITORY}/releases/download/[^/]*/|https://dl.yzre.cn/toolbox/|g" release-assets/latest.json
+            echo "Updated latest.json:"
+            cat release-assets/latest.json
+          fi
+
+      - name: Deploy to ECS via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ECS_HOST }}
+          username: ${{ secrets.ECS_USER }}
+          key: ${{ secrets.ECS_SSH_KEY }}
+          port: 22
+          source: release-assets/*
+          target: /var/www/dl/toolbox
+          strip_components: 1

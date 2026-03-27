@@ -39,7 +39,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEzODQ4REQ4OUM2N0FGRDUKUldUVnIyZWMySTJFbzlrWEZEWnZidzFwWjU3Rkx2eTBuNEVoV3NNTEIrSXR6NFNtRERLa3RLck8K",
       "endpoints": [
-        "https://github.yzre.cn/yunfengnobug/toolbox/releases/latest/download/latest.json",
+        "https://dl.yzre.cn/toolbox/latest.json",
         "https://github.com/yunfengnobug/toolbox/releases/latest/download/latest.json"
       ]
     }
