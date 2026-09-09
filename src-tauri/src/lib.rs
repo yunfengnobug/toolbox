@@ -1,5 +1,6 @@
 mod hardware;
 mod modifier;
+mod thermal;
 
 use hardware::IdentifierInfo;
 use tauri::Manager;
@@ -64,6 +65,21 @@ fn backup_identifiers(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn get_thermal_status() -> Result<thermal::ThermalStatus, String> {
+    Ok(thermal::get_status())
+}
+
+#[tauri::command]
+fn set_cooling_mode(mode: String) -> Result<String, String> {
+    thermal::set_cooling_mode(&mode)
+}
+
+#[tauri::command]
+fn set_fan_percent(fan_id: String, percent: u32) -> Result<String, String> {
+    thermal::set_fan_percent(&fan_id, percent)
+}
+
+#[tauri::command]
 fn restore_identifiers(app: tauri::AppHandle) -> Result<(), String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let backup_path = data_dir.join("backup.json");
@@ -106,6 +122,9 @@ pub fn run() {
             generate_random_value,
             backup_identifiers,
             restore_identifiers,
+            get_thermal_status,
+            set_cooling_mode,
+            set_fan_percent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -24,6 +24,14 @@ const allTools: Tool[] = [
     route: '/machine-code',
     platforms: ['windows', 'macos', 'linux'],
   },
+  {
+    id: 'thermal',
+    name: '散热控制',
+    desc: '监控温度并调节风扇/散热策略',
+    icon: 'fan',
+    route: '/thermal',
+    platforms: ['windows', 'macos', 'linux'],
+  },
 ]
 
 const tools = computed(() =>
@@ -56,6 +64,12 @@ onMounted(async () => {
             <path d="M14 12c0 2.5-.5 5-1.5 7.5"/>
             <path d="M18 11c0 4-1.5 8-4 11"/>
             <path d="M22 12c0 4-2 9-5 12"/>
+          </svg>
+          <svg v-else-if="tool.icon === 'fan'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 12c0-3 1.5-5 4.5-5S21 9 21 12s-1.5 5-4.5 5-4.5-2-4.5-5z"/>
+            <path d="M12 12c0-3-1.5-5-4.5-5S3 9 3 12s1.5 5 4.5 5 4.5-2 4.5-5z"/>
+            <path d="M12 12c3 0 5 1.5 5 4.5S15 21 12 21s-5-1.5-5-4.5 2-4.5 5-4.5z"/>
+            <circle cx="12" cy="12" r="1.8"/>
           </svg>
         </div>
         <div class="tool-card__info">
