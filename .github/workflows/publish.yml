@@ -43,6 +43,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # latest.json is built once all matrix builds finish. Uploading it here
+      # races and the last platform overwrites the others.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,40 +56,121 @@ jobs:
           releaseBody: 'See the assets to download and install.'
           releaseDraft: false
           prerelease: false
+          uploadUpdaterJson: false
           args: ${{ matrix.args }}
 
-  deploy-to-ecs:
+  publish-to-qiniu:
     needs: publish-tauri
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Check updater manifest builder
+        run: python3 .github/scripts/build_latest_json.py --self-test
+
       - name: Download release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           TAG="${GITHUB_REF#refs/tags/}"
           mkdir -p release-assets
           gh release download "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --dir release-assets
-          ls -la release-assets/
+          find release-assets -maxdepth 1 -type f -printf '%f\n' | sort
 
-      - name: Rewrite download URLs in latest.json
+      - name: Build merged latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -f release-assets/latest.json ]; then
-            sed -i "s|https://github.com/${GITHUB_REPOSITORY}/releases/download/[^/]*/|https://dl.yzre.cn/toolbox/|g" release-assets/latest.json
-            echo "Updated latest.json:"
-            cat release-assets/latest.json
-          fi
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq .publishedAt > "$RUNNER_TEMP/pub-date.txt"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$RUNNER_TEMP/release-notes.txt"
+          python3 .github/scripts/build_latest_json.py \
+            --assets-dir release-assets \
+            --version "$VERSION" \
+            --notes-file "$RUNNER_TEMP/release-notes.txt" \
+            --pub-date "$(cat "$RUNNER_TEMP/pub-date.txt")" \
+            --github-base "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}" \
+            --cdn-base "https://dl.yzre.cn/toolbox" \
+            --github-output release-assets/latest.json \
+            --cdn-output "$RUNNER_TEMP/cdn-latest.json"
+          python3 .github/scripts/build_latest_json.py \
+            --check release-assets/latest.json \
+            --url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/"
+          python3 .github/scripts/build_latest_json.py \
+            --check "$RUNNER_TEMP/cdn-latest.json" \
+            --url-prefix "https://dl.yzre.cn/toolbox/"
 
-      - name: Deploy to ECS via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.ECS_HOST }}
-          username: ${{ secrets.ECS_USER }}
-          key: ${{ secrets.ECS_SSH_KEY }}
-          port: 22
-          source: release-assets/*
-          target: /var/www/dl/toolbox
-          strip_components: 1
+      - name: Upload merged latest.json to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release upload "$TAG" release-assets/latest.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+      - name: Stage Qiniu objects
+        run: |
+          set -euo pipefail
+          mkdir -p qiniu-assets
+          for file in release-assets/*; do
+            name="$(basename "$file")"
+            if [ "$name" = "latest.json" ]; then
+              continue
+            fi
+            cp "$file" "qiniu-assets/$name"
+          done
+          cp "$RUNNER_TEMP/cdn-latest.json" qiniu-assets/latest.json
+          find qiniu-assets -maxdepth 1 -type f -printf '%f\n' | sort
+
+      - name: Install MinIO client
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/mc" \
+            "https://github.com/minio/mc/releases/download/RELEASE.2025-08-13T08-35-41Z/mc.linux-amd64.RELEASE.2025-08-13T08-35-41Z"
+          echo "01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891  $RUNNER_TEMP/mc" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/mc"
+
+      - name: Upload release assets to Qiniu Kodo
+        env:
+          QINIU_ACCESS_KEY: ${{ secrets.QINIU_ACCESS_KEY }}
+          QINIU_SECRET_KEY: ${{ secrets.QINIU_SECRET_KEY }}
+          MC_REGION: cn-east-1
+          MC_CONFIG_DIR: ${{ runner.temp }}/mc-config
+        run: |
+          set -euo pipefail
+          set +x
+          if [ -z "${QINIU_ACCESS_KEY}" ] || [ -z "${QINIU_SECRET_KEY}" ]; then
+            echo "Qiniu credentials are not available to this job" >&2
+            exit 1
+          fi
+          mkdir -p "$MC_CONFIG_DIR"
+          chmod 700 "$MC_CONFIG_DIR"
+          trap 'rm -rf "$MC_CONFIG_DIR"' EXIT
+          mc="$RUNNER_TEMP/mc"
+          "$mc" alias set qiniu "https://s3-cn-east-1.qiniucs.com" \
+            "$QINIU_ACCESS_KEY" "$QINIU_SECRET_KEY" \
+            --api S3v4 --path on
+          for file in qiniu-assets/*; do
+            name="$(basename "$file")"
+            target="qiniu/yzredl/toolbox/${name}"
+            if [ "$name" = "latest.json" ]; then
+              "$mc" cp --quiet \
+                --attr "Content-Type=application/json;Cache-Control=no-cache" \
+                "$file" "$target"
+            else
+              "$mc" cp --quiet "$file" "$target"
+            fi
+          done
+          "$mc" cat "qiniu/yzredl/toolbox/latest.json" > "$RUNNER_TEMP/qiniu-latest.json"
+          python3 .github/scripts/build_latest_json.py \
+            --check "$RUNNER_TEMP/qiniu-latest.json" \
+            --url-prefix "https://dl.yzre.cn/toolbox/"
