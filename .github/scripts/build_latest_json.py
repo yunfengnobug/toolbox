@@ -278,6 +278,21 @@ def self_test() -> None:
         else:
             raise AssertionError("incomplete manifest was accepted")
 
+        # tauri-action@v0 names updater archives "<name>_<arch>.app.tar.gz".
+        legacy = Path(tmp) / "legacy-names"
+        legacy.mkdir()
+        _write_asset(legacy, "toolbox_0.5.1_x64-setup.exe", signature + "win")
+        _write_asset(legacy, "toolbox_aarch64.app.tar.gz", signature + "arm")
+        _write_asset(legacy, "toolbox_x64.app.tar.gz", signature + "x64")
+        named = render_manifest(
+            legacy, "0.5.1", "", "2026-11-21T17:37:00Z", "https://dl.yzre.cn/toolbox"
+        )
+        assert named["platforms"]["darwin-aarch64"]["url"].endswith("/toolbox_aarch64.app.tar.gz")
+        assert named["platforms"]["darwin-x86_64"]["url"].endswith("/toolbox_x64.app.tar.gz")
+        assert named["platforms"]["windows-x86_64-nsis"]["url"].endswith(
+            "/toolbox_0.5.1_x64-setup.exe"
+        )
+
     print("self-test ok")
 
 
